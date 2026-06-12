@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CineVerse — Your AI Movie Guide</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- ========== NAVBAR ========== -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span class="brand-icon">🎬</span>
+      <span class="brand-name">CineVerse</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#home" class="nav-link active">Home</a></li>
+      <li><a href="#discover" class="nav-link">Discover</a></li>
+      <li><a href="#trending" class="nav-link">Trending</a></li>
+      <li><a href="#chatbot-section" class="nav-link">AI Guide</a></li>
+    </ul>
+    <div class="nav-right">
+      <button class="watchlist-nav-btn" onclick="openWatchlistPanel()" title="My Watchlist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <span>Watchlist</span>
+        <span class="wl-count" id="wlCount">0</span>
+      </button>
+
+      <!-- Logged OUT state -->
+      <button class="auth-btn login-btn" id="loginBtn" onclick="signInWithGoogle()">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+        Sign in with Google
+      </button>
+
+      <!-- Logged IN state (hidden by default) -->
+      <div class="user-menu" id="userMenu" style="display:none">
+        <img class="user-avatar" id="userAvatar" src="" alt="avatar" onclick="toggleUserDropdown()"/>
+        <div class="user-dropdown" id="userDropdown">
+          <div class="user-info">
+            <img id="dropdownAvatar" src="" alt=""/>
+            <div>
+              <div class="user-name" id="userName"></div>
+              <div class="user-email" id="userEmail"></div>
+            </div>
+          </div>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item" onclick="openWatchlistPanel(); toggleUserDropdown()">
+            ❤️ My Watchlist
+          </button>
+          <button class="dropdown-item logout-item" onclick="signOut()">
+            🚪 Sign Out
+          </button>
+        </div>
+      </div>
+
+      <button class="nav-cta" onclick="scrollToDiscover()">Find Movies</button>
+    </div>
+  </nav>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero" id="home">
+    <div class="hero-bg">
+      <div class="film-grain"></div>
+      <div class="hero-lights"></div>
+    </div>
+    <div class="hero-content">
+      <div class="hero-badge">✦ AI-Powered Recommendations</div>
+      <h1 class="hero-title">
+        Every Film Has<br/>
+        <em>Your Name</em><br/>
+        Written On It
+      </h1>
+      <p class="hero-subtitle">
+        Tell us your mood, your favourite heroes, genres, or characters —<br/>
+        our AI will find the perfect movie for your next watch.
+      </p>
+      <div class="hero-search">
+        <input type="text" id="heroSearch" placeholder="Search by title, actor, genre…" autocomplete="off"/>
+        <button onclick="heroSearch()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+      <div class="hero-tags">
+        <span class="tag" onclick="quickSearch('Action')">Action</span>
+        <span class="tag" onclick="quickSearch('Romance')">Romance</span>
+        <span class="tag" onclick="quickSearch('Thriller')">Thriller</span>
+        <span class="tag" onclick="quickSearch('Comedy')">Comedy</span>
+        <span class="tag" onclick="quickSearch('Sci-Fi')">Sci-Fi</span>
+        <span class="tag" onclick="quickSearch('Horror')">Horror</span>
+      </div>
+    </div>
+    <br>
+    <br>
+    <div class="hero-scroll-hint">
+      <span>Scroll to Discover</span>
+      <div class="scroll-arrow"></div>
+    </div>
+  </section>
+
+  <!-- ========== DISCOVER SECTION ========== -->
+  <section class="discover" id="discover">
+    <div class="section-header">
+      <h2 class="section-title">Discover by <em>Your Taste</em></h2>
+      <p class="section-sub">Filter by type, genre, actor, actress, or character type</p>
+    </div>
+
+    <!-- Type Toggle -->
+    <div class="type-toggle">
+      <button class="type-btn active" data-type="movie" onclick="setType('movie', this)">🎬 Movies</button>
+      <button class="type-btn" data-type="tv" onclick="setType('tv', this)">📺 Web Series</button>
+      <button class="type-btn" data-type="both" onclick="setType('both', this)">🔀 Both</button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Genre</label>
+        <select id="genreFilter" onchange="applyFilters()">
+          <option value="">All Genres</option>
+          <option value="Action">Action</option>
+          <option value="Adventure">Adventure</option>
+          <option value="Animation">Animation</option>
+          <option value="Comedy">Comedy</option>
+          <option value="Crime">Crime</option>
+          <option value="Drama">Drama</option>
+          <option value="Fantasy">Fantasy</option>
+          <option value="Horror">Horror</option>
+          <option value="Mystery">Mystery</option>
+          <option value="Romance">Romance</option>
+          <option value="Sci-Fi">Sci-Fi</option>
+          <option value="Thriller">Thriller</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Actor / Hero</label>
+        <input type="text" id="actorFilter" placeholder="e.g. Tom Hanks, Shah Rukh Khan" oninput="debounceFilter()"/>
+      </div>
+      <div class="filter-group">
+        <label>Actress / Heroine</label>
+        <input type="text" id="actressFilter" placeholder="e.g. Meryl Streep, Deepika Padukone" oninput="debounceFilter()"/>
+      </div>
+      <div class="filter-group">
+        <label>Character Type</label>
+        <select id="characterFilter" onchange="applyFilters()">
+          <option value="">Any Character</option>
+          <option value="superhero">Superhero</option>
+          <option value="villain">Villain</option>
+          <option value="detective">Detective / Investigator</option>
+          <option value="warrior">Warrior / Soldier</option>
+          <option value="romance">Romantic Lead</option>
+          <option value="antihero">Anti-Hero</option>
+          <option value="comedy">Comic Character</option>
+          <option value="spy">Spy / Agent</option>
+        </select>
+      </div>
+      <button class="filter-btn" onclick="applyFilters()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Search
+      </button>
+      <button class="filter-reset" onclick="resetFilters()">Reset</button>
+    </div>
+
+    <!-- Results Grid -->
+    <div class="results-meta" id="resultsMeta"></div>
+    <div class="movies-grid" id="moviesGrid"></div>
+    <div class="load-more-wrap" id="loadMoreWrap" style="display:none">
+      <button class="load-more-btn" onclick="loadMore()" id="loadMoreBtn">Load More</button>
+    </div>
+  </section>
+
+  <!-- ========== TRENDING ========== -->
+  <section class="trending" id="trending">
+    <div class="section-header">
+      <h2 class="section-title">🔥 Trending <em>Right Now</em></h2>
+      <p class="section-sub">The most talked-about movies & shows this week</p>
+    </div>
+    <div class="movies-grid" id="trendingGrid"></div>
+  </section>
+
+  <!-- ========== MOVIE MODAL ========== -->
+  <div class="modal-overlay" id="movieModal" onclick="closeModal(event)">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div class="modal-inner" id="modalInner"></div>
+    </div>
+  </div>
+
+  <!-- ========== AI CHATBOT ========== -->
+  <section class="chatbot-section" id="chatbot-section">
+    <div class="chatbot-intro">
+      <div class="chatbot-badge">✦ Powered by Claude AI</div>
+      <h2 class="section-title">Your Personal<br/><em>Cinema Guide</em></h2>
+      <p class="section-sub">
+        Ask anything — "Recommend a thriller like Inception", "Movies with strong female leads",
+        "Best 90s romantic comedies" — your AI guide has seen it all.
+      </p>
+      <div class="chatbot-features">
+        <div class="cf-item"><span>🎭</span> Genre-aware suggestions</div>
+        <div class="cf-item"><span>🌟</span> Actor/actress lookup</div>
+        <div class="cf-item"><span>🎬</span> Character-based recs</div>
+        <div class="cf-item"><span>🌍</span> World cinema & regional picks</div>
+      </div>
+    </div>
+
+    <div class="chatbot-widget">
+      <div class="chat-header">
+        <div class="chat-avatar">🎥</div>
+        <div class="chat-info">
+          <span class="chat-name">CineBot</span>
+          <span class="chat-status"><span class="status-dot"></span> Online</span>
+        </div>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-msg bot">
+          <div class="msg-avatar">🎥</div>
+          <div class="msg-bubble">
+            Hey there, cinephile! 🎬 I'm CineBot — your personal movie guide.<br/><br/>
+            Ask me anything like:<br/>
+            • <em>"Recommend action movies with strong heroes"</em><br/>
+            • <em>"Movies where the villain is the best character"</em><br/>
+            • <em>"Romantic films starring Shah Rukh Khan"</em><br/><br/>
+            What are you in the mood for today?
+          </div>
+        </div>
+      </div>
+      <div class="chat-suggestions" id="chatSuggestions">
+        <button onclick="sendSuggestion(this)">🎭 Best thrillers of all time</button>
+        <button onclick="sendSuggestion(this)">💫 Movies like Inception</button>
+        <button onclick="sendSuggestion(this)">❤️ Romantic Hindi films</button>
+        <button onclick="sendSuggestion(this)">🦸 Superhero recs for beginners</button>
+      </div>
+      <div class="chat-input-bar">
+        <input type="text" id="chatInput" placeholder="Ask about any movie, genre, actor…" onkeydown="if(event.key==='Enter') sendChat()"/>
+        <button class="chat-send" onclick="sendChat()">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21 23 12 2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="brand-icon">🎬</span>
+        <span class="brand-name">CineVerse</span>
+      </div>
+      <p class="footer-tagline">Curated cinema for every soul</p>
+      <p class="footer-credits">Movie data powered by <strong>TMDB</strong> · AI by <strong>Groq (Llama 3)</strong></p>
+      <p class="footer-note">© 2026 CineVerse. Built with ❤️ for cinema lovers.</p>
+    </div>
+  </footer>
+
+  <!-- WATCHLIST PANEL -->
+  <div class="wl-overlay" id="watchlistOverlay" onclick="closeWatchlistPanel()"></div>
+  <div class="wl-panel" id="watchlistPanel">
+    <div class="wl-header">
+      <div class="wl-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        My Watchlist
+      </div>
+      <button class="wl-close" onclick="closeWatchlistPanel()">✕</button>
+    </div>
+    <div class="movies-grid" id="watchlistGrid"></div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toastEl" style="display:none"></div>
+
+  <!-- LOGIN MODAL -->
+  <div class="login-modal-overlay" id="loginModal" onclick="closeLoginModal(event)">
+    <div class="login-modal-card">
+      <button class="modal-close" onclick="closeLoginModal()">✕</button>
+      <div class="login-modal-inner">
+        <div class="login-logo">🎬</div>
+        <h2 class="login-title">Welcome to <em>CineVerse</em></h2>
+        <p class="login-sub">Sign in to save your watchlist across all devices and get personalised recommendations.</p>
+        <button class="google-signin-btn" onclick="signInWithGoogle()">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+        <p class="login-note">Free forever · No credit card needed</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.local.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

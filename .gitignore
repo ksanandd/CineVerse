@@ -1,0 +1,16 @@
+# ⚠️ NEVER commit your real API keys!
+# Copy config.js → config.local.js and fill in real keys there
+
+config.local.js
+*.local.js
+.env
+.env.local
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
