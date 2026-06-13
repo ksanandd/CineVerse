@@ -53,6 +53,9 @@
           <button class="dropdown-item" onclick="openWatchlistPanel(); toggleUserDropdown()">
             ❤️ My Watchlist
           </button>
+          <button class="dropdown-item" onclick="openRatingsPanel(); toggleUserDropdown()">
+            ⭐ My Ratings
+          </button>
           <button class="dropdown-item logout-item" onclick="signOut()">
             🚪 Sign Out
           </button>
@@ -268,6 +271,18 @@
       <button class="wl-close" onclick="closeWatchlistPanel()">✕</button>
     </div>
     <div class="movies-grid" id="watchlistGrid"></div>
+  </div>
+
+  <!-- RATINGS PANEL -->
+  <div class="wl-overlay" id="ratingsOverlay" onclick="closeRatingsPanel()"></div>
+  <div class="wl-panel" id="ratingsPanel">
+    <div class="wl-header">
+      <div class="wl-title">
+        ⭐ My Ratings
+      </div>
+      <button class="wl-close" onclick="closeRatingsPanel()">✕</button>
+    </div>
+    <div class="movies-grid" id="ratingsGrid"></div>
   </div>
 
   <!-- TOAST -->

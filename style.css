@@ -1215,3 +1215,74 @@ input, select { font-family:inherit; }
 .login-note {
   font-size: 0.75rem; color: var(--text-faint);
 }
+
+/* ============================================================
+   STAR RATING STYLES — Add to end of style.css
+   ============================================================ */
+
+/* Card star rating */
+.card-stars {
+  display: flex;
+  gap: 2px;
+  margin-top: 0.4rem;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--border);
+  padding: 0;
+  line-height: 1;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.star-btn:hover,
+.star-btn.active {
+  color: var(--gold);
+  transform: scale(1.2);
+}
+
+/* Hover effect — highlight all stars up to hovered */
+.card-stars:hover .star-btn,
+.modal-stars:hover .star-btn {
+  color: var(--gold);
+}
+
+.card-stars:hover .star-btn:hover ~ .star-btn,
+.modal-stars:hover .star-btn:hover ~ .star-btn {
+  color: var(--border);
+}
+
+/* Modal star rating section */
+.modal-rating-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.modal-rating-label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.modal-stars {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.modal-star-btn {
+  font-size: 1.6rem !important;
+}
+
+.modal-avg-rating {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin-top: 0.3rem;
+}

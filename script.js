@@ -147,6 +147,85 @@ async function saveWatchlistToFirestore(list) {
   }
 }
 
+
+// ============================================================
+//  RATINGS — Firebase Firestore
+// ============================================================
+
+async function rateMovie(movieId, movieTitle, rating) {
+  if (!currentUser) {
+    showToast("⚠️ Please sign in to rate movies!");
+    document.getElementById("loginModal").classList.add("active");
+    return;
+  }
+  try {
+    await db.collection("ratings").doc(`${currentUser.uid}_${movieId}`).set({
+      userId: currentUser.uid, movieId, movieTitle, rating, updatedAt: new Date()
+    });
+    const aggRef  = db.collection("movieRatings").doc(String(movieId));
+    const aggSnap = await aggRef.get();
+    if (aggSnap.exists) {
+      const data = aggSnap.data();
+      const oldRatings = data.ratings || {};
+      const prevRating = oldRatings[currentUser.uid];
+      let total = data.total || 0;
+      let count = data.count || 0;
+      if (prevRating) { total = total - prevRating + rating; }
+      else { total = total + rating; count = count + 1; }
+      oldRatings[currentUser.uid] = rating;
+      await aggRef.set({ total, count, ratings: oldRatings, movieTitle });
+    } else {
+      await aggRef.set({ total: rating, count: 1, ratings: { [currentUser.uid]: rating }, movieTitle });
+    }
+    showToast(`⭐ You rated "${movieTitle}" ${rating}/5!`);
+    updateStarUI(movieId, rating);
+    loadMovieAvgRating(movieId);
+  } catch (e) { console.error("Rating error:", e); showToast("⚠️ Could not save rating!"); }
+}
+
+async function getUserRating(movieId) {
+  if (!currentUser) return 0;
+  try {
+    const doc = await db.collection("ratings").doc(`${currentUser.uid}_${movieId}`).get();
+    return doc.exists ? doc.data().rating : 0;
+  } catch (e) { return 0; }
+}
+
+async function getAvgRating(movieId) {
+  try {
+    const doc = await db.collection("movieRatings").doc(String(movieId)).get();
+    if (doc.exists) {
+      const { total, count } = doc.data();
+      return count > 0 ? (total / count).toFixed(1) : null;
+    }
+    return null;
+  } catch (e) { return null; }
+}
+
+async function loadMovieAvgRating(movieId) {
+  const avg = await getAvgRating(movieId);
+  const el  = document.getElementById(`avg-rating-${movieId}`);
+  if (el) el.textContent = avg ? `⭐ ${avg}/5 community rating` : "No ratings yet";
+}
+
+function updateStarUI(movieId, rating) {
+  document.querySelectorAll(`.star-btn[data-movie-id="${movieId}"]`).forEach(btn => {
+    btn.classList.toggle("active", parseInt(btn.dataset.value) <= rating);
+  });
+}
+
+async function buildStarRating(movieId, movieTitle, isModal = false) {
+  const userRating = await getUserRating(movieId);
+  const size = isModal ? "modal-star" : "card-star";
+  let html = `<div class="star-rating ${size}" data-movie-id="${movieId}">`;
+  for (let i = 1; i <= 5; i++) {
+    html += `<button class="star-btn ${i <= userRating ? "active" : ""}" data-value="${i}" data-movie-id="${movieId}" data-movie-title="${escapeHtml(movieTitle)}" title="Rate ${i} star" onclick="rateMovie(${movieId}, this.dataset.movieTitle, ${i}); event.stopPropagation()">★</button>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+
 // ============================================================
 //  TMDB CONFIG
 // ============================================================
@@ -666,10 +745,20 @@ function buildMovieCard(movie, index) {
     <div class="card-info">
       <div class="card-title">${escapeHtml(movie.title || "Untitled")}</div>
       <div class="card-meta">${year}${rating}${typeBadge}</div>
+      <div class="card-stars" id="card-stars-${movie.id}">
+        ${[1,2,3,4,5].map(i => `<button class="star-btn" data-value="${i}" data-movie-id="${movie.id}" data-movie-title="${movie.title || ''}" onclick="rateMovie(${movie.id}, this.dataset.movieTitle, ${i}); event.stopPropagation()" title="Rate ${i} star">★</button>`).join('')}
+      </div>
     </div>
     <div class="card-overlay">
       <div class="card-overlay-btn">View Details</div>
     </div>`;
+
+  // Load user rating for this card asynchronously
+  getUserRating(movie.id).then(userRating => {
+    document.querySelectorAll(`#card-stars-${movie.id} .star-btn`).forEach(btn => {
+      btn.classList.toggle("active", parseInt(btn.dataset.value) <= userRating);
+    });
+  });
 
   return card;
 }
@@ -782,6 +871,13 @@ async function openModal(movieId, isTV = false) {
         <div class="modal-year">${year}${cert ? " · " + cert : ""}${m.original_language !== "en" ? " · " + m.original_language.toUpperCase() : ""}</div>
         ${stats.length ? `<div class="modal-stats">${stats.join("")}</div>` : ""}
         ${m.overview ? `<div class="modal-plot">${escapeHtml(m.overview)}</div>` : ""}
+        <div class="modal-rating-section">
+          <div class="modal-rating-label">⭐ Rate this ${isTV ? "show" : "movie"}</div>
+          <div class="modal-stars" id="modal-stars-${m.id || movieId}">
+            ${[1,2,3,4,5].map(i => `<button class="star-btn modal-star-btn" data-value="${i}" data-movie-id="${movieId}" data-movie-title="${escapeHtml(m.title)}" onclick="rateMovie(${movieId}, this.dataset.movieTitle, ${i})" title="Rate ${i} star">★</button>`).join("")}
+          </div>
+          <div class="modal-avg-rating" id="avg-rating-${movieId}">Loading ratings...</div>
+        </div>
         ${trailerHtml}
         ${ottHtml}
         <div class="modal-info">
@@ -799,6 +895,14 @@ async function openModal(movieId, isTV = false) {
         </div>
         ${similarHtml}
       </div>`;
+    // Load user rating and avg rating for modal
+    getUserRating(movieId).then(userRating => {
+      document.querySelectorAll(`#modal-stars-${movieId} .star-btn`).forEach(btn => {
+        btn.classList.toggle("active", parseInt(btn.dataset.value) <= userRating);
+      });
+    });
+    loadMovieAvgRating(movieId);
+
   } catch (e) {
     inner.innerHTML = `<div style="padding:2rem;color:var(--text-dim);text-align:center;width:100%">Could not load movie details.</div>`;
   }
@@ -1178,6 +1282,84 @@ function closeWatchlistPanel() {
   document.getElementById("watchlistPanel").classList.remove("open");
   document.getElementById("watchlistOverlay").classList.remove("active");
   document.body.style.overflow = "";
+}
+
+// ============================================================
+//  RATINGS PANEL
+// ============================================================
+async function openRatingsPanel() {
+  if (!currentUser) {
+    showToast("⚠️ Please sign in to view your ratings!");
+    document.getElementById("loginModal").classList.add("active");
+    return;
+  }
+  document.getElementById("ratingsPanel").classList.add("open");
+  document.getElementById("ratingsOverlay").classList.add("active");
+  document.body.style.overflow = "hidden";
+  await renderRatingsPanel();
+}
+
+function closeRatingsPanel() {
+  document.getElementById("ratingsPanel").classList.remove("open");
+  document.getElementById("ratingsOverlay").classList.remove("active");
+  document.body.style.overflow = "";
+}
+
+async function renderRatingsPanel() {
+  const grid = document.getElementById("ratingsGrid");
+  grid.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-dim)">Loading your ratings...</div>`;
+
+  try {
+    const snapshot = await db.collection("ratings")
+      .where("userId", "==", currentUser.uid)
+      .get();
+
+    if (snapshot.empty) {
+      grid.innerHTML = `<div class="wl-empty">
+        <span>⭐</span>
+        <p>You haven't rated anything yet.</p>
+        <small>Open any movie and give it a star rating!</small>
+      </div>`;
+      return;
+    }
+
+    // Get all rated movies
+    const rated = [];
+    snapshot.forEach(doc => rated.push(doc.data()));
+
+    // Sort by most recently rated
+    rated.sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
+
+    grid.innerHTML = "";
+    rated.forEach((item, i) => {
+      const card = document.createElement("div");
+      card.className = "movie-card";
+      card.style.animationDelay = `${i * 0.05}s`;
+      card.onclick = () => openModal(item.movieId);
+
+      // Build stars display
+      const stars = [1,2,3,4,5].map(s =>
+        `<span style="color:${s <= item.rating ? 'var(--gold)' : 'var(--border)'}">★</span>`
+      ).join("");
+
+      card.innerHTML = `
+        <div class="card-poster-placeholder" style="height:200px">
+          <span style="font-size:3rem">🎬</span>
+          <small style="margin-top:0.5rem;color:var(--text-dim)">${escapeHtml(item.movieTitle || "Unknown")}</small>
+        </div>
+        <div class="card-info">
+          <div class="card-title">${escapeHtml(item.movieTitle || "Unknown")}</div>
+          <div style="font-size:1.1rem;margin-top:0.3rem">${stars}</div>
+          <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.2rem">Your rating: ${item.rating}/5</div>
+        </div>`;
+
+      grid.appendChild(card);
+    });
+
+  } catch (e) {
+    console.error("Ratings panel error:", e);
+    grid.innerHTML = `<div class="wl-empty"><span>⚠️</span><p>Could not load ratings.</p></div>`;
+  }
 }
 
 // Toast notification
