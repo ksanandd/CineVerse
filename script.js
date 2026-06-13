@@ -8,7 +8,7 @@
 //  ➡️  Never hardcode real keys here!
 // ============================================================
 const TMDB_API_KEY = CONFIG.TMDB_API_KEY;      // https://www.themoviedb.org/settings/api
-const GROQ_API_KEY = CONFIG.GROQ_API_KEY;      // https://console.groq.com → API Keys (FREE ✅)
+// ✅ No Groq key here — handled server-side via /netlify/functions/chat.js
 
 // ============================================================
 //  🔥 FIREBASE CONFIG — loaded from CONFIG object
@@ -950,9 +950,9 @@ async function loadTrending() {
 }
 
 // ============================================================
-//  AI CHATBOT  (Groq API — FREE ✅ | Llama 3)
+//  AI CHATBOT  (Groq API via Netlify Function — key hidden server-side ✅)
 // ============================================================
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_URL = "/.netlify/functions/chat";  // ✅ calls our serverless function, not Groq directly
 
 const SYSTEM_PROMPT = `You are CineBot — a warm, knowledgeable, and passionate movie recommendation AI assistant for the CineVerse website.
 
@@ -999,18 +999,11 @@ async function sendChat() {
       ...chatHistory
     ];
 
+    // ✅ Calls Netlify Function — Groq key stays server-side, never exposed
     const response = await fetch(GROQ_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: messages,
-        max_tokens: 1000,
-        temperature: 0.8
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages })
     });
 
     const data = await response.json();
