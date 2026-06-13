@@ -23,5 +23,5 @@ const CONFIG = {
 
   // ⚠️ No Groq key here — it lives in Netlify Environment Variables
   // Groq requests go through /netlify/functions/chat.js
-
+  
 };
