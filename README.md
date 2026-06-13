@@ -4,7 +4,7 @@ A full-stack movie and web series discovery platform with AI recommendations,
 OTT availability, trailers, watchlist and Google authentication.
 
 ## 🌐 Live Demo
-https://clinquant-alfajores-c9860f.netlify.app
+👉 [cineverse-cinemaguide.netlify.app] (https://cineverse-cinemaguide.netlify.app)
 
 ## ✨ Features
 - 🎬 Movie & Web Series Discovery (TMDB API)
