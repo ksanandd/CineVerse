@@ -149,80 +149,236 @@ async function saveWatchlistToFirestore(list) {
 
 
 // ============================================================
-//  RATINGS — Firebase Firestore
+//  REVIEWS & RATINGS — Firebase Firestore (BookMyShow style)
 // ============================================================
 
-async function rateMovie(movieId, movieTitle, rating) {
+// Selected star for review form (per movie)
+const reviewStarState = {};
+
+function setReviewStar(movieId, movieTitle, value) {
+  reviewStarState[movieId] = value;
+  document.querySelectorAll(`#review-stars-${movieId} .star-btn`).forEach(btn => {
+    btn.classList.toggle("active", parseInt(btn.dataset.value) <= value);
+  });
+}
+
+// Submit or update a review
+async function submitReview(movieId, movieTitle) {
   if (!currentUser) {
-    showToast("⚠️ Please sign in to rate movies!");
+    showToast("⚠️ Please sign in to review!");
     document.getElementById("loginModal").classList.add("active");
     return;
   }
+  const rating  = reviewStarState[movieId] || 0;
+  const text    = (document.getElementById(`review-text-${movieId}`)?.value || "").trim();
+
+  if (!rating)  { showToast("⚠️ Please select a star rating!"); return; }
+  if (!text)    { showToast("⚠️ Please write something about the movie!"); return; }
+
+  const btn = document.getElementById(`review-submit-${movieId}`);
+  if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+
   try {
-    await db.collection("ratings").doc(`${currentUser.uid}_${movieId}`).set({
-      userId: currentUser.uid, movieId, movieTitle, rating, updatedAt: new Date()
+    const reviewRef = db.collection("reviews").doc(`${currentUser.uid}_${movieId}`);
+    const isEdit    = (await reviewRef.get()).exists;
+
+    await reviewRef.set({
+      userId:      currentUser.uid,
+      userName:    currentUser.displayName || "Anonymous",
+      userAvatar:  currentUser.photoURL    || "",
+      movieId,
+      movieTitle,
+      rating,
+      text,
+      updatedAt:   firebase.firestore.FieldValue.serverTimestamp(),
+      createdAt:   isEdit ? (await reviewRef.get()).data().createdAt : firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    // Update aggregate
+    await updateAggregateRating(movieId, movieTitle);
+
+    showToast(isEdit ? "✅ Review updated!" : `⭐ Review submitted for "${movieTitle}"!`);
+    // Reload reviews section
+    await loadReviews(movieId, movieTitle);
+  } catch (e) {
+    console.error("Review error:", e);
+    showToast("⚠️ Could not save review. Try again!");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Submit Review"; }
+  }
+}
+
+// Delete a review
+async function deleteReview(movieId, movieTitle) {
+  if (!currentUser) return;
+  if (!confirm("Delete your review?")) return;
+  try {
+    await db.collection("reviews").doc(`${currentUser.uid}_${movieId}`).delete();
+    await updateAggregateRating(movieId, movieTitle);
+    showToast("🗑️ Review deleted!");
+    await loadReviews(movieId, movieTitle);
+  } catch (e) {
+    console.error("Delete error:", e);
+    showToast("⚠️ Could not delete review!");
+  }
+}
+
+// Recalculate aggregate rating from all reviews
+async function updateAggregateRating(movieId, movieTitle) {
+  try {
+    const snap = await db.collection("reviews").where("movieId", "==", movieId).get();
+    let total = 0, count = 0;
+    snap.forEach(doc => { total += doc.data().rating || 0; count++; });
+    await db.collection("movieRatings").doc(String(movieId)).set({
+      total, count, movieTitle, avg: count > 0 ? (total / count) : 0
     });
-    const aggRef  = db.collection("movieRatings").doc(String(movieId));
-    const aggSnap = await aggRef.get();
-    if (aggSnap.exists) {
-      const data = aggSnap.data();
-      const oldRatings = data.ratings || {};
-      const prevRating = oldRatings[currentUser.uid];
-      let total = data.total || 0;
-      let count = data.count || 0;
-      if (prevRating) { total = total - prevRating + rating; }
-      else { total = total + rating; count = count + 1; }
-      oldRatings[currentUser.uid] = rating;
-      await aggRef.set({ total, count, ratings: oldRatings, movieTitle });
-    } else {
-      await aggRef.set({ total: rating, count: 1, ratings: { [currentUser.uid]: rating }, movieTitle });
-    }
-    showToast(`⭐ You rated "${movieTitle}" ${rating}/5!`);
-    updateStarUI(movieId, rating);
-    loadMovieAvgRating(movieId);
-  } catch (e) { console.error("Rating error:", e); showToast("⚠️ Could not save rating!"); }
+  } catch (e) { console.error("Aggregate error:", e); }
 }
 
-async function getUserRating(movieId) {
-  if (!currentUser) return 0;
+// Get user's existing review
+async function getUserReview(movieId) {
+  if (!currentUser) return null;
   try {
-    const doc = await db.collection("ratings").doc(`${currentUser.uid}_${movieId}`).get();
-    return doc.exists ? doc.data().rating : 0;
-  } catch (e) { return 0; }
+    const doc = await db.collection("reviews").doc(`${currentUser.uid}_${movieId}`).get();
+    return doc.exists ? doc.data() : null;
+  } catch (e) { return null; }
 }
 
+// Get average community rating
 async function getAvgRating(movieId) {
   try {
     const doc = await db.collection("movieRatings").doc(String(movieId)).get();
     if (doc.exists) {
-      const { total, count } = doc.data();
-      return count > 0 ? (total / count).toFixed(1) : null;
+      const { avg, count } = doc.data();
+      return count > 0 ? { avg: parseFloat(avg).toFixed(1), count } : null;
     }
     return null;
   } catch (e) { return null; }
 }
 
-async function loadMovieAvgRating(movieId) {
-  const avg = await getAvgRating(movieId);
-  const el  = document.getElementById(`avg-rating-${movieId}`);
-  if (el) el.textContent = avg ? `⭐ ${avg}/5 community rating` : "No ratings yet";
+// Load and render full review section in modal
+async function loadReviews(movieId, movieTitle) {
+  const container = document.getElementById(`reviews-section-${movieId}`);
+  if (!container) return;
+
+  // Get user's own review
+  const myReview = await getUserReview(movieId);
+  // Pre-fill star state
+  if (myReview) reviewStarState[movieId] = myReview.rating;
+
+  // Get all reviews
+  let allReviews = [];
+  try {
+    const snap = await db.collection("reviews").where("movieId", "==", movieId).get();
+    snap.forEach(doc => allReviews.push(doc.data()));
+    allReviews.sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
+  } catch (e) { console.error("Load reviews error:", e); }
+
+  // Get aggregate
+  const agg = await getAvgRating(movieId);
+
+  // Build stars for review form
+  const formStars = [1,2,3,4,5].map(i =>
+    `<button class="star-btn ${myReview && i <= myReview.rating ? 'active' : ''}"
+      data-value="${i}"
+      onclick="setReviewStar(${movieId}, '${escapeHtml(movieTitle)}', ${i})"
+      title="Rate ${i} star">★</button>`
+  ).join("");
+
+  container.innerHTML = `
+    <!-- Overall rating summary -->
+    <div class="review-summary">
+      <div class="review-avg">
+        <span class="review-avg-num">${agg ? agg.avg : "—"}</span>
+        <span class="review-avg-label">/ 5</span>
+      </div>
+      <div class="review-avg-stars">
+        ${agg ? [1,2,3,4,5].map(i =>
+          `<span style="color:${i <= Math.round(parseFloat(agg.avg)) ? 'var(--gold)' : 'var(--border)'}">★</span>`
+        ).join("") : "No ratings yet"}
+      </div>
+      <div class="review-count">${agg ? `${agg.count} review${agg.count !== 1 ? 's' : ''}` : "Be the first to review!"}</div>
+    </div>
+
+    <!-- Write / Edit Review Form -->
+    ${currentUser ? `
+    <div class="review-form">
+      <div class="review-form-title">${myReview ? "✏️ Edit Your Review" : "✍️ Write a Review"}</div>
+      <div class="review-form-stars" id="review-stars-${movieId}">${formStars}</div>
+      <textarea
+        id="review-text-${movieId}"
+        class="review-textarea"
+        placeholder="What did you think about this movie? Share your thoughts..."
+        maxlength="500">${myReview ? escapeHtml(myReview.text) : ""}</textarea>
+      <div class="review-form-actions">
+        <button class="review-submit-btn" id="review-submit-${movieId}"
+          onclick="submitReview(${movieId}, '${escapeHtml(movieTitle)}')">
+          ${myReview ? "Update Review" : "Submit Review"}
+        </button>
+        ${myReview ? `<button class="review-delete-btn"
+          onclick="deleteReview(${movieId}, '${escapeHtml(movieTitle)}')">
+          🗑️ Delete
+        </button>` : ""}
+      </div>
+    </div>` : `
+    <div class="review-login-prompt">
+      <p>🔐 Sign in with Google to rate and review</p>
+      <button class="review-signin-btn" onclick="signInWithGoogle()">Sign In</button>
+    </div>`}
+
+    <!-- All Reviews List -->
+    <div class="reviews-list">
+      <div class="reviews-list-title">💬 Community Reviews ${allReviews.length > 0 ? `(${allReviews.length})` : ""}</div>
+      ${allReviews.length === 0 ? `<div class="reviews-empty">No reviews yet. Be the first!</div>` :
+        allReviews.map(r => {
+          const stars = [1,2,3,4,5].map(i =>
+            `<span style="color:${i <= r.rating ? 'var(--gold)' : 'var(--border)'}">★</span>`
+          ).join("");
+          const date = r.updatedAt?.toDate?.()
+            ? r.updatedAt.toDate().toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })
+            : "Recently";
+          const isOwn = currentUser && r.userId === currentUser.uid;
+          return `
+          <div class="review-card ${isOwn ? 'own-review' : ''}">
+            <div class="review-card-header">
+              <img class="review-avatar" src="${r.userAvatar || ''}"
+                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+                alt="${escapeHtml(r.userName)}"/>
+              <div class="review-avatar-fallback" style="display:none">${(r.userName||"?")[0].toUpperCase()}</div>
+              <div class="review-card-meta">
+                <div class="review-card-name">${escapeHtml(r.userName)} ${isOwn ? '<span class="own-badge">You</span>' : ""}</div>
+                <div class="review-card-stars">${stars}</div>
+              </div>
+              <div class="review-card-date">${date}</div>
+            </div>
+            <div class="review-card-text">${escapeHtml(r.text)}</div>
+          </div>`;
+        }).join("")
+      }
+    </div>`;
 }
 
+// Update star UI on cards
 function updateStarUI(movieId, rating) {
-  document.querySelectorAll(`.star-btn[data-movie-id="${movieId}"]`).forEach(btn => {
+  document.querySelectorAll(`#card-stars-${movieId} .star-btn`).forEach(btn => {
     btn.classList.toggle("active", parseInt(btn.dataset.value) <= rating);
   });
 }
 
-async function buildStarRating(movieId, movieTitle, isModal = false) {
-  const userRating = await getUserRating(movieId);
-  const size = isModal ? "modal-star" : "card-star";
-  let html = `<div class="star-rating ${size}" data-movie-id="${movieId}">`;
-  for (let i = 1; i <= 5; i++) {
-    html += `<button class="star-btn ${i <= userRating ? "active" : ""}" data-value="${i}" data-movie-id="${movieId}" data-movie-title="${escapeHtml(movieTitle)}" title="Rate ${i} star" onclick="rateMovie(${movieId}, this.dataset.movieTitle, ${i}); event.stopPropagation()">★</button>`;
-  }
-  html += `</div>`;
-  return html;
+// Load avg rating on cards
+async function loadMovieAvgRating(movieId) {
+  const agg = await getAvgRating(movieId);
+  const el  = document.getElementById(`avg-rating-${movieId}`);
+  if (el) el.textContent = agg ? `⭐ ${agg.avg}/5 (${agg.count} reviews)` : "No reviews yet";
+}
+
+// Get user's card-level rating (from reviews)
+async function getUserRating(movieId) {
+  if (!currentUser) return 0;
+  try {
+    const doc = await db.collection("reviews").doc(`${currentUser.uid}_${movieId}`).get();
+    return doc.exists ? (doc.data().rating || 0) : 0;
+  } catch (e) { return 0; }
 }
 
 
@@ -871,12 +1027,9 @@ async function openModal(movieId, isTV = false) {
         <div class="modal-year">${year}${cert ? " · " + cert : ""}${m.original_language !== "en" ? " · " + m.original_language.toUpperCase() : ""}</div>
         ${stats.length ? `<div class="modal-stats">${stats.join("")}</div>` : ""}
         ${m.overview ? `<div class="modal-plot">${escapeHtml(m.overview)}</div>` : ""}
-        <div class="modal-rating-section">
-          <div class="modal-rating-label">⭐ Rate this ${isTV ? "show" : "movie"}</div>
-          <div class="modal-stars" id="modal-stars-${m.id || movieId}">
-            ${[1,2,3,4,5].map(i => `<button class="star-btn modal-star-btn" data-value="${i}" data-movie-id="${movieId}" data-movie-title="${escapeHtml(m.title)}" onclick="rateMovie(${movieId}, this.dataset.movieTitle, ${i})" title="Rate ${i} star">★</button>`).join("")}
-          </div>
-          <div class="modal-avg-rating" id="avg-rating-${movieId}">Loading ratings...</div>
+        <!-- REVIEWS SECTION — loaded async below -->
+        <div id="reviews-section-${movieId}" class="reviews-section-wrap">
+          <div style="padding:1.5rem;text-align:center;color:var(--text-dim)">Loading reviews...</div>
         </div>
         ${trailerHtml}
         ${ottHtml}
@@ -895,13 +1048,8 @@ async function openModal(movieId, isTV = false) {
         </div>
         ${similarHtml}
       </div>`;
-    // Load user rating and avg rating for modal
-    getUserRating(movieId).then(userRating => {
-      document.querySelectorAll(`#modal-stars-${movieId} .star-btn`).forEach(btn => {
-        btn.classList.toggle("active", parseInt(btn.dataset.value) <= userRating);
-      });
-    });
-    loadMovieAvgRating(movieId);
+    // Load full review section
+    await loadReviews(movieId, m.title);
 
   } catch (e) {
     inner.innerHTML = `<div style="padding:2rem;color:var(--text-dim);text-align:center;width:100%">Could not load movie details.</div>`;
@@ -1307,58 +1455,70 @@ function closeRatingsPanel() {
 
 async function renderRatingsPanel() {
   const grid = document.getElementById("ratingsGrid");
-  grid.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-dim)">Loading your ratings...</div>`;
+  grid.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-dim)">Loading your reviews...</div>`;
 
   try {
-    const snapshot = await db.collection("ratings")
+    const snapshot = await db.collection("reviews")
       .where("userId", "==", currentUser.uid)
       .get();
 
     if (snapshot.empty) {
       grid.innerHTML = `<div class="wl-empty">
         <span>⭐</span>
-        <p>You haven't rated anything yet.</p>
-        <small>Open any movie and give it a star rating!</small>
+        <p>You haven't reviewed anything yet.</p>
+        <small>Open any movie, rate it and write a review!</small>
       </div>`;
       return;
     }
 
-    // Get all rated movies
-    const rated = [];
-    snapshot.forEach(doc => rated.push(doc.data()));
+    const reviews = [];
+    snapshot.forEach(doc => reviews.push(doc.data()));
+    reviews.sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
 
-    // Sort by most recently rated
-    rated.sort((a, b) => (b.updatedAt?.toMillis?.() || 0) - (a.updatedAt?.toMillis?.() || 0));
+    grid.innerHTML = `<div class="ratings-panel-list"></div>`;
+    const list = grid.querySelector(".ratings-panel-list");
 
-    grid.innerHTML = "";
-    rated.forEach((item, i) => {
-      const card = document.createElement("div");
-      card.className = "movie-card";
-      card.style.animationDelay = `${i * 0.05}s`;
-      card.onclick = () => openModal(item.movieId);
-
-      // Build stars display
+    reviews.forEach((item, i) => {
       const stars = [1,2,3,4,5].map(s =>
         `<span style="color:${s <= item.rating ? 'var(--gold)' : 'var(--border)'}">★</span>`
       ).join("");
+      const date = item.updatedAt?.toDate?.()
+        ? item.updatedAt.toDate().toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })
+        : "Recently";
 
+      const card = document.createElement("div");
+      card.className = "rated-movie-card";
+      card.style.animationDelay = `${i * 0.05}s`;
       card.innerHTML = `
-        <div class="card-poster-placeholder" style="height:200px">
-          <span style="font-size:3rem">🎬</span>
-          <small style="margin-top:0.5rem;color:var(--text-dim)">${escapeHtml(item.movieTitle || "Unknown")}</small>
+        <div class="rated-movie-info" onclick="closeRatingsPanel(); openModal(${item.movieId})">
+          <div class="rated-movie-title">${escapeHtml(item.movieTitle || "Unknown")}</div>
+          <div class="rated-movie-stars">${stars} <span class="rated-movie-score">${item.rating}/5</span></div>
+          <div class="rated-movie-date">${date}</div>
+          ${item.text ? `<div class="rated-movie-text">"${escapeHtml(item.text)}"</div>` : ""}
         </div>
-        <div class="card-info">
-          <div class="card-title">${escapeHtml(item.movieTitle || "Unknown")}</div>
-          <div style="font-size:1.1rem;margin-top:0.3rem">${stars}</div>
-          <div style="font-size:0.75rem;color:var(--text-dim);margin-top:0.2rem">Your rating: ${item.rating}/5</div>
-        </div>`;
-
-      grid.appendChild(card);
+        <button class="rated-delete-btn" onclick="deleteReviewFromPanel(${item.movieId}, '${escapeHtml(item.movieTitle || '')}', this)">🗑️</button>`;
+      list.appendChild(card);
     });
 
   } catch (e) {
     console.error("Ratings panel error:", e);
-    grid.innerHTML = `<div class="wl-empty"><span>⚠️</span><p>Could not load ratings.</p></div>`;
+    grid.innerHTML = `<div class="wl-empty"><span>⚠️</span><p>Could not load reviews.</p></div>`;
+  }
+}
+
+async function deleteReviewFromPanel(movieId, movieTitle, btn) {
+  if (!confirm("Delete your review for this movie?")) return;
+  btn.disabled = true;
+  btn.textContent = "...";
+  try {
+    await db.collection("reviews").doc(`${currentUser.uid}_${movieId}`).delete();
+    await updateAggregateRating(movieId, movieTitle);
+    showToast("🗑️ Review deleted!");
+    await renderRatingsPanel();
+  } catch (e) {
+    showToast("⚠️ Could not delete review!");
+    btn.disabled = false;
+    btn.textContent = "🗑️";
   }
 }
 
