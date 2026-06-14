@@ -32,4 +32,30 @@ OTT availability, trailers, watchlist and Google authentication.
 3. Replace placeholders in script.js with your keys
 4. Open index.html with Live Server
 
+## 📸 Screenshots
+
+### 🏠 Home Page
+![Hero](screenshots/IntroToCineVerse.png)
+
+### 🎬 Discover
+![Discover](screenshots/DiscoverGrid.png)
+
+### 🔥 Trending
+![Trending](screenshots/TrendingGrid.png)
+
+### 🎭 Movie Card Details
+![Reviews](screenshots/modal-reviews.png)
+![Trailer](screenshots/modal-trailer.png)
+![Similar](screenshots/modal-similar.png)
+
+### 🤖 AI-ChatBot Feature
+![AI-Feature](screenshots/Chatbot-InFeature.png)
+![AI-InAction](screenshots/Chatbot-InAction.png)
+
+### 🙂 Profile
+![ProView](screenshots/ProfileView.png)
+
+### ❤️ Watchlist
+![Watchlist](screenshots/WatchList.png)
+
 ## 📁 Project Structure
