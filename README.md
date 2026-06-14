@@ -29,7 +29,7 @@ OTT availability, trailers, watchlist and Google authentication.
    - TMDB: https://www.themoviedb.org/settings/api
    - Groq: https://console.groq.com
    - Firebase: https://console.firebase.google.com
-3. Replace placeholders in script.js with your keys
+3. Copy config.js → config.local.js and fill in your real keys
 4. Open index.html with Live Server
 
 ## 📸 Screenshots
