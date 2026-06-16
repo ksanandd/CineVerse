@@ -5,6 +5,7 @@ OTT availability, trailers, watchlist and Google authentication.
 
 ## 🌐 Live Demo
 👉 [cineverse-cinemaguide.netlify.app] (https://cineverse-cinemaguide.netlify.app)
+### NOTE : "The website requires a non-JIO network or VPN due to TMDB API restrictions on certain Indian ISPs — a known infrastructure limitation, not a code issue."
 
 ## ✨ Features
 - 🎬 Movie & Web Series Discovery (TMDB API)
