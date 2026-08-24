@@ -50,8 +50,8 @@ OTT availability, trailers, watchlist and Google authentication.
 ![Similar](screenshots/modal-similar.png)
 
 ### 🤖 AI-ChatBot Feature
-![AI-Feature](screenshots/Chatbot-InFeature.png)
-![AI-InAction](screenshots/Chatbot-InAction.png)
+![AI-Feature](screenshots/ChatbotInfeature.png)
+![AI-InAction](screenshots/ChatbotInAction.png)
 
 ### 🙂 Profile
 ![ProView](screenshots/ProfileView.png)
