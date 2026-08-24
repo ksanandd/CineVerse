@@ -11,6 +11,7 @@ const CONFIG = {
   // Get your free TMDB key at: https://www.themoviedb.org/settings/api
   TMDB_API_KEY: "9f772729560d2b3a75e1f63fc5e94d25",
 
+
   // Get your Firebase config at: https://console.firebase.google.com
   FIREBASE: {
         apiKey: "AIzaSyA0sonesYP_gooCK-tjzvFn8zYPE4PhAHE",

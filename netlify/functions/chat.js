@@ -1,13 +1,13 @@
 // ============================================================
 //  Netlify Function — chat.js
 //  Proxies Groq API requests server-side
-//  Groq key is stored in Netlify Environment Variables
-//  and NEVER exposed to the browser or GitHub
+//  Groq key stored in Netlify Environment Variables
+//  NEVER exposed to browser or GitHub ✅
 // ============================================================
 
 exports.handler = async function (event) {
 
-  // Only allow POST requests
+  // Only allow POST
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
@@ -19,7 +19,6 @@ exports.handler = async function (event) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // ✅ Groq key loaded from Netlify Environment Variable — never visible to browser
         "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({

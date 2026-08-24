@@ -8,7 +8,7 @@
 //  ➡️  Never hardcode real keys here!
 // ============================================================
 const TMDB_API_KEY = CONFIG.TMDB_API_KEY;
-const GROQ_API_KEY = CONFIG.GROQ_API_KEY;      // https://www.themoviedb.org/settings/api
+const GROQ_API_KEY = (typeof CONFIG !== "undefined" && CONFIG.GROQ_API_KEY) ? CONFIG.GROQ_API_KEY : "";
 // ✅ No Groq key here — handled server-side via /netlify/functions/chat.js
 
 // ============================================================
@@ -1205,7 +1205,11 @@ async function loadTrending() {
 // ============================================================
 //  AI CHATBOT  (Groq API via Netlify Function — key hidden server-side ✅)
 // ============================================================
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";  // ✅ calls our serverless function, not Groq directly
+// ✅ Auto-detect: direct Groq API locally, Netlify function on deployed site
+const IS_LOCAL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const GROQ_URL = IS_LOCAL
+  ? "https://api.groq.com/openai/v1/chat/completions"
+  : "/.netlify/functions/chat";
 
 const SYSTEM_PROMPT = `You are CineBot — a warm, knowledgeable, and passionate movie recommendation AI assistant for the CineVerse website.
 
@@ -1252,13 +1256,13 @@ async function sendChat() {
       ...chatHistory
     ];
 
-    // ✅ Calls Netlify Function — Groq key stays server-side, never exposed
+    // ✅ Local: calls Groq directly with key | Deployed: calls Netlify function (key hidden)
+    const reqHeaders = { "Content-Type": "application/json" };
+    if (IS_LOCAL) reqHeaders["Authorization"] = `Bearer ${GROQ_API_KEY}`;
+
     const response = await fetch(GROQ_URL, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${GROQ_API_KEY}`
-     },
+      headers: reqHeaders,
       body: JSON.stringify({
         model: "qwen/qwen3.6-27b",
         messages: messages,
