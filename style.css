@@ -1570,5 +1570,23 @@ input, select { font-family:inherit; }
   transition: background 0.2s;
 }
 
+.brand-logo {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+  /* Invert to white/gold since logo is brown on light bg */
+  filter: invert(1) sepia(1) saturate(2) hue-rotate(5deg) brightness(1.2);
+  transition: transform var(--transition), filter var(--transition);
+}
+.brand-logo:hover {
+  transform: scale(1.05);
+  filter: invert(1) sepia(1) saturate(3) hue-rotate(5deg) brightness(1.4);
+}
+
+.footer-brand-logo {
+  height: 52px;
+  margin-bottom: 0.5rem;
+}
+
 .rated-delete-btn:hover { background: rgba(255,60,60,0.25); }
 .rated-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
