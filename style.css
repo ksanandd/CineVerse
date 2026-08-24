@@ -149,16 +149,23 @@ input, select { font-family:inherit; }
 }
 .hero-title {
   font-family:'Playfair Display', serif;
-  font-size: clamp(3rem, 7vw, 5.5rem);
-  font-weight:900; line-height:1.05;
+  font-size: clamp(2.6rem, 6vw, 4.8rem);
+  font-weight:700;
+  line-height:1.15;
+  letter-spacing:-0.01em;
   color:var(--text);
   margin-bottom:1.5rem;
   animation: fadeDown 0.9s 0.15s ease both;
 }
 .hero-title em {
-  font-style:italic; color:var(--gold);
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
+  font-style:italic;
+  font-weight:400;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 60%, #fff8e0 100%);
   -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  display:inline;
+  font-size:1.15em;
+  line-height:inherit;
+  letter-spacing:0.01em;
 }
 .hero-subtitle {
   font-size:1.05rem; color:var(--text-dim); line-height:1.8;
@@ -1565,26 +1572,3 @@ input, select { font-family:inherit; }
 
 .rated-delete-btn:hover { background: rgba(255,60,60,0.25); }
 .rated-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-/* ==========================================
-   FOOTER AUTHOR CREDIT
-   ========================================== */
-.footer-made {
-  color: var(--text-dim);
-  font-size: 0.85rem;
-  margin-bottom: 0.3rem;
-}
-.footer-author {
-  color: var(--gold);
-  font-weight: 600;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  transition: color var(--transition);
-  border-bottom: 1px solid rgba(201,168,76,0.3);
-  padding-bottom: 1px;
-}
-.footer-author:hover {
-  color: var(--gold2);
-  border-bottom-color: var(--gold2);
-}
