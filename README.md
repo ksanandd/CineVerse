@@ -59,4 +59,7 @@ OTT availability, trailers, watchlist and Google authentication.
 ### ❤️ Watchlist
 ![Watchlist](screenshots/WatchList.png)
 
+### ⭐⭐⭐ Ratings
+![Ratings](screenshots/RatingsToMovies.png)
+
 ## 📁 Project Structure
