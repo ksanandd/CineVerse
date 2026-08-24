@@ -1565,3 +1565,26 @@ input, select { font-family:inherit; }
 
 .rated-delete-btn:hover { background: rgba(255,60,60,0.25); }
 .rated-delete-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* ==========================================
+   FOOTER AUTHOR CREDIT
+   ========================================== */
+.footer-made {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+.footer-author {
+  color: var(--gold);
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  transition: color var(--transition);
+  border-bottom: 1px solid rgba(201,168,76,0.3);
+  padding-bottom: 1px;
+}
+.footer-author:hover {
+  color: var(--gold2);
+  border-bottom-color: var(--gold2);
+}
